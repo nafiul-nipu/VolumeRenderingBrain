@@ -1,4 +1,4 @@
-var ArcballCamera = function(center, zoomSpeed, screenDims) {
+var ArcballCamera = function (center, zoomSpeed, screenDims) {
 	this.zoomSpeed = zoomSpeed;
 	this.invScreen = [1.0 / screenDims[0], 1.0 / screenDims[1]];
 
@@ -14,7 +14,7 @@ var ArcballCamera = function(center, zoomSpeed, screenDims) {
 	this.updateCameraMatrix();
 }
 
-ArcballCamera.prototype.rotateY = function(curMouse) {
+ArcballCamera.prototype.rotateY = function (curMouse) {
 	var mPrev = vec2.set(vec2.create(),
 		0,
 		0);
@@ -30,7 +30,7 @@ ArcballCamera.prototype.rotateY = function(curMouse) {
 	this.updateCameraMatrix();
 }
 
-ArcballCamera.prototype.rotate = function(prevMouse, curMouse) {
+ArcballCamera.prototype.rotate = function (prevMouse, curMouse) {
 	var mPrev = vec2.set(vec2.create(),
 		clamp(prevMouse[0] * 2.0 * this.invScreen[0] - 1.0, -1.0, 1.0),
 		clamp(1.0 - prevMouse[1] * 2.0 * this.invScreen[1], -1.0, 1.0));
@@ -48,7 +48,7 @@ ArcballCamera.prototype.rotate = function(prevMouse, curMouse) {
 	this.updateCameraMatrix();
 }
 
-ArcballCamera.prototype.zoom = function(amount) {
+ArcballCamera.prototype.zoom = function (amount) {
 	var vt = vec3.set(vec3.create(), 0.0, 0.0, amount * this.invScreen[1] * this.zoomSpeed);
 	var t = mat4.fromTranslation(mat4.create(), vt);
 	this.translation = mat4.mul(this.translation, t, this.translation);
@@ -58,7 +58,7 @@ ArcballCamera.prototype.zoom = function(amount) {
 	this.updateCameraMatrix();
 }
 
-ArcballCamera.prototype.pan = function(mouseDelta) {
+ArcballCamera.prototype.pan = function (mouseDelta) {
 	var delta = vec4.set(vec4.create(), mouseDelta[0] * this.invScreen[0] * Math.abs(this.translation[14]),
 		mouseDelta[1] * this.invScreen[1] * Math.abs(this.translation[14]), 0, 0);
 	var worldDelta = vec4.transformMat4(vec4.create(), delta, this.invCamera);
@@ -67,7 +67,7 @@ ArcballCamera.prototype.pan = function(mouseDelta) {
 	this.updateCameraMatrix();
 }
 
-ArcballCamera.prototype.updateCameraMatrix = function() {
+ArcballCamera.prototype.updateCameraMatrix = function () {
 	// camera = translation * rotation * centerTranslation
 	var rotMat = mat4.fromQuat(mat4.create(), this.rotation);
 	this.camera = mat4.mul(this.camera, rotMat, this.centerTranslation);
@@ -75,25 +75,25 @@ ArcballCamera.prototype.updateCameraMatrix = function() {
 	this.invCamera = mat4.invert(this.invCamera, this.camera);
 }
 
-ArcballCamera.prototype.eyePos = function() {
+ArcballCamera.prototype.eyePos = function () {
 	return [camera.invCamera[12], camera.invCamera[13], camera.invCamera[14]];
 }
 
-ArcballCamera.prototype.eyeDir = function() {
+ArcballCamera.prototype.eyeDir = function () {
 	var dir = vec4.set(vec4.create(), 0.0, 0.0, -1.0, 0.0);
 	dir = vec4.transformMat4(dir, dir, this.invCamera);
 	dir = vec4.normalize(dir, dir);
 	return [dir[0], dir[1], dir[2]];
 }
 
-ArcballCamera.prototype.upDir = function() {
+ArcballCamera.prototype.upDir = function () {
 	var dir = vec4.set(vec4.create(), 0.0, 1.0, 0.0, 0.0);
 	dir = vec4.transformMat4(dir, dir, this.invCamera);
 	dir = vec4.normalize(dir, dir);
 	return [dir[0], dir[1], dir[2]];
 }
 
-var screenToArcball = function(p) {
+var screenToArcball = function (p) {
 	var dist = vec2.dot(p, p);
 	if (dist <= 1.0) {
 		return quat.set(quat.create(), p[0], p[1], Math.sqrt(1.0 - dist), 0);
@@ -104,11 +104,11 @@ var screenToArcball = function(p) {
 		return quat.set(quat.create(), unitP[0], unitP[1], 0, 0);
 	}
 }
-var clamp = function(a, min, max) {
+var clamp = function (a, min, max) {
 	return a < min ? min : a > max ? max : a;
 }
 
-var pointDist = function(a, b) {
+var pointDist = function (a, b) {
 	var v = [b[0] - a[0], b[1] - a[1]];
 	return Math.sqrt(Math.pow(v[0], 2.0) + Math.pow(v[1], 2.0));
 }
@@ -127,18 +127,18 @@ var pointDist = function(a, b) {
  * twoFingerDrag: function(dragVector)
  *     two finger drag, receives the drag movement amount
  */
-var Controller = function() {
+var Controller = function () {
 	this.mousemove = null;
 	this.wheel = null;
 	this.twoFingerDrag = null;
 	this.pinch = null;
 }
 
-Controller.prototype.registerForCanvas = function(canvas) {
+Controller.prototype.registerForCanvas = function (canvas) {
 	var prevMouse = null;
 	var mouseState = [false, false];
 	var self = this;
-	canvas.addEventListener("mousemove", function(evt) {
+	canvas.addEventListener("mousemove", function (evt) {
 		evt.preventDefault();
 		var rect = canvas.getBoundingClientRect();
 		var curMouse = [evt.clientX - rect.left, evt.clientY - rect.top];
@@ -148,15 +148,15 @@ Controller.prototype.registerForCanvas = function(canvas) {
 			self.mousemove(prevMouse, curMouse, evt);
 		}
 		prevMouse = curMouse;
-		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true }))
 	});
 
-	canvas.addEventListener("wheel", function(evt) {
+	canvas.addEventListener("wheel", function (evt) {
 		evt.preventDefault();
 		if (self.wheel) {
 			self.wheel(-evt.deltaY);
 		}
-		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true }))
 	});
 
 	canvas.oncontextmenu = function (evt) {
@@ -164,17 +164,17 @@ Controller.prototype.registerForCanvas = function(canvas) {
 	};
 
 	var touches = {};
-	canvas.addEventListener("touchstart", function(evt) {
+	canvas.addEventListener("touchstart", function (evt) {
 		var rect = canvas.getBoundingClientRect();
 		evt.preventDefault();
 		for (var i = 0; i < evt.changedTouches.length; ++i) {
 			var t = evt.changedTouches[i];
 			touches[t.identifier] = [t.clientX - rect.left, t.clientY - rect.top];
 		}
-		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true }))
 	});
 
-	canvas.addEventListener("touchmove", function(evt) {
+	canvas.addEventListener("touchmove", function (evt) {
 		evt.preventDefault();
 		var rect = canvas.getBoundingClientRect();
 		var numTouches = Object.keys(touches).length;
@@ -241,15 +241,13 @@ Controller.prototype.registerForCanvas = function(canvas) {
 			// the fingers, then the user is zooming.
 			// Otherwise, if the fingers are moving along the same direction they're panning
 			if (self.pinch && Math.abs(pinchMotion[0]) > 0.5 && Math.abs(pinchMotion[1]) > 0.5
-				&& Math.sign(pinchMotion[0]) != Math.sign(pinchMotion[1]))
-			{
+				&& Math.sign(pinchMotion[0]) != Math.sign(pinchMotion[1])) {
 				// Pinch distance change for zooming
 				var oldDist = pointDist(oldTouches[0], oldTouches[1]);
 				var newDist = pointDist(newTouches[0], newTouches[1]);
 				self.pinch(newDist - oldDist);
 			} else if (self.twoFingerDrag && Math.abs(panMotion[0]) > 0.5 && Math.abs(panMotion[1]) > 0.5
-				&& Math.sign(panMotion[0]) == Math.sign(panMotion[1]))
-			{
+				&& Math.sign(panMotion[0]) == Math.sign(panMotion[1])) {
 				// Pan by the average motion of the two fingers
 				var panAmount = vec2.lerp(vec2.create(), motionVectors[0], motionVectors[1], 0.5);
 				panAmount[1] = -panAmount[1];
@@ -262,22 +260,22 @@ Controller.prototype.registerForCanvas = function(canvas) {
 			var t = evt.changedTouches[i];
 			touches[t.identifier] = [t.clientX - rect.left, t.clientY - rect.top];
 		}
-		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true }))
 	});
 
-	var touchEnd = function(evt) {
+	var touchEnd = function (evt) {
 		evt.preventDefault();
 		for (var i = 0; i < evt.changedTouches.length; ++i) {
 			var t = evt.changedTouches[i];
 			delete touches[t.identifier];
 		}
-		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true }))
 	}
 	canvas.addEventListener("touchcancel", touchEnd);
 	canvas.addEventListener("touchend", touchEnd);
 }
 
-var Shader = function(vertexSrc, fragmentSrc) {
+var Shader = function (vertexSrc, fragmentSrc) {
 	var self = this;
 	this.program = compileShader(vertexSrc, fragmentSrc);
 
@@ -290,13 +288,13 @@ var Shader = function(vertexSrc, fragmentSrc) {
 	var fragUnifs = fragmentSrc.match(regexUniform);
 
 	if (vertexUnifs) {
-		vertexUnifs.forEach(function(unif) {
+		vertexUnifs.forEach(function (unif) {
 			var m = unif.match(matchUniformName);
 			self.uniforms[m[1]] = -1;
 		});
 	}
 	if (fragUnifs) {
-		fragUnifs.forEach(function(unif) {
+		fragUnifs.forEach(function (unif) {
 			var m = unif.match(matchUniformName);
 			self.uniforms[m[1]] = -1;
 		});
@@ -307,18 +305,18 @@ var Shader = function(vertexSrc, fragmentSrc) {
 	}
 }
 
-Shader.prototype.use = function() {
+Shader.prototype.use = function () {
 	gl.useProgram(this.program);
 }
 
 // Compile and link the shaders vert and frag. vert and frag should contain
 // the shader source code for the vertex and fragment shaders respectively
 // Returns the compiled and linked program, or null if compilation or linking failed
-var compileShader = function(vert, frag){
+var compileShader = function (vert, frag) {
 	var vs = gl.createShader(gl.VERTEX_SHADER);
 	gl.shaderSource(vs, vert);
 	gl.compileShader(vs);
-	if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)){
+	if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
 		alert("Vertex shader failed to compile, see console for log");
 		console.log(gl.getShaderInfoLog(vs));
 		return null;
@@ -327,7 +325,7 @@ var compileShader = function(vert, frag){
 	var fs = gl.createShader(gl.FRAGMENT_SHADER);
 	gl.shaderSource(fs, frag);
 	gl.compileShader(fs);
-	if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)){
+	if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
 		alert("Fragment shader failed to compile, see console for log");
 		console.log(gl.getShaderInfoLog(fs));
 		return null;
@@ -337,7 +335,7 @@ var compileShader = function(vert, frag){
 	gl.attachShader(program, vs);
 	gl.attachShader(program, fs);
 	gl.linkProgram(program);
-	if (!gl.getProgramParameter(program, gl.LINK_STATUS)){
+	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
 		alert("Shader failed to link, see console for log");
 		console.log(gl.getProgramInfoLog(program));
 		return null;
@@ -345,11 +343,37 @@ var compileShader = function(vert, frag){
 	return program;
 }
 
-var getGLExtension = function(ext) {
+var getGLExtension = function (ext) {
 	if (!gl.getExtension(ext)) {
 		alert("Missing " + ext + " WebGL extension");
 		return false;
 	}
 	return true;
+}
+
+var createShaderEpi = function (gl, type, source) {
+	var shader = gl.createShader(type);
+	gl.shaderSource(shader, source);
+	gl.compileShader(shader);
+	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+		var info = gl.getShaderInfoLog(shader);
+		console.log('Could not compile WebGL program:' + info);
+	}
+
+	return shader;
+}
+
+var createProgramEpi = function (gl, vertexShader, fragmentShader) {
+	var program = gl.createProgram();
+
+	gl.attachShader(program, vertexShader);
+	gl.attachShader(program, fragmentShader);
+	gl.linkProgram(program);
+	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+		var info = gl.getProgramInfoLog(program);
+		console.log('Could not compile WebGL program:' + info);
+	}
+
+	return program;
 }
 
