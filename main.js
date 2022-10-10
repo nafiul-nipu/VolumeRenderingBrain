@@ -437,6 +437,7 @@ var selectVolume = function (url, isURL = true) {
             hdr.cal_min = mn;
             hdr.cal_max = mx;
         }
+        console.log(imgRaw)
         updateVolume();
     });
 }; // selectVolume()
@@ -585,7 +586,6 @@ function callElectrodeProgram() {
         52.6332588195801, 139.174285888672, 168.291290283203
     ];
 
-    // var indices = [0, 1, 2];
     // Create an empty buffer object to store vertex buffer
     var vertex_buffer = gl.createBuffer();
     // Bind appropriate array buffer to it
@@ -594,45 +594,11 @@ function callElectrodeProgram() {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
     // Unbind the buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    // Create an empty buffer object to store Index buffer
-    // var Index_Buffer = gl.createBuffer();
-    // Bind appropriate array buffer to it
-    // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Index_Buffer);
-    // Pass the vertex data to the buffer
-    // gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
-    // Unbind the buffer
-    // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-    // Vertex shader source code
-
+    // console.log(new Int16Array(vertices))
     // Bind vertex buffer object
     gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
 
-    // Bind index buffer object
-    // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, Index_Buffer);
-
-    // Get the attribute location
-    // var coord = gl.getAttribLocation(epiShader.program, "coordinates");
-
-    // // Point an attribute to the currently bound VBO
-    // gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
-
-    // // Enable the attribute
-    // gl.enableVertexAttribArray(coord);
-
-    /*=========Drawing the triangle===========*/
-
-    // Clear the canvas
-    // gl.clearColor(0.5, 0.5, 0.5, 0.9);
-
-    // Enable the depth test
-    // gl.enable(gl.DEPTH_TEST);
-
-    // Clear the color buffer bit
-    // gl.clear(gl.COLOR_BUFFER_BIT);
-
-    // Set the view port
-    // gl.viewport(0, 0, canvas.width, canvas.height);
 
 }
 
