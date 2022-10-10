@@ -3,6 +3,7 @@ var cubeStrip = [
     0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0,
 ];
 var container = null;
+var vertices = null;
 var isBlackBackColor = true;
 var gl = null;
 var isDrawOnDemand = false;
@@ -250,7 +251,8 @@ function glDraw() {
     gl.enableVertexAttribArray(coord);
 
     // Draw the triangle
-    gl.drawArrays(gl.POINTS, 0, 3);
+    // console.log(vertices.length / 3)
+    gl.drawArrays(gl.POINTS, 0, vertices.length / 3);
 
     // callElectrodeProgram();
     // Wait for rendering to actually finish
@@ -384,6 +386,7 @@ var selectVolume = function (url, isURL = true) {
         console.log('load volume')
         hdr = xhdr;
         img = ximg;
+        console.log(img)
         //determine range
         var imgRaw;
         if (hdr.datatypeCode === 2)
@@ -418,15 +421,15 @@ var selectVolume = function (url, isURL = true) {
             isFinite(hdr.scl_inter) &&
             hdr.scl_slope !== 0.0
         ) {
-            //console.log(">> mn %f mx %f %f %f", mn, mx, hdr.scl_slope, hdr.scl_inter);
+            // console.log(">> mn %f mx %f %f %f", mn, mx, hdr.scl_slope, hdr.scl_inter);
             mn = mn * hdr.scl_slope + hdr.scl_inter;
             mx = mx * hdr.scl_slope + hdr.scl_inter;
         } else {
             hdr.scl_slope = 1.0;
             hdr.scl_inter = 0.0;
         }
-        //console.log("vx %d type %d mn %f mx %f", vox, hdr.datatypeCode, mn, mx);
-        //console.log("cal mn..mx %f..%f", hdr.cal_min, hdr.cal_max);
+        // console.log("vx %d type %d mn %f mx %f", vox, hdr.datatypeCode, mn, mx);
+        // console.log("cal mn..mx %f..%f", hdr.cal_min, hdr.cal_max);
         hdr.global_min = mn;
         hdr.global_max = mx;
         if (
@@ -437,7 +440,7 @@ var selectVolume = function (url, isURL = true) {
             hdr.cal_min = mn;
             hdr.cal_max = mx;
         }
-        console.log(imgRaw)
+        console.log(hdr)
         updateVolume();
     });
 }; // selectVolume()
@@ -580,10 +583,27 @@ function callElectrodeProgram() {
     // var prjv = gl.getUniformLocation(epiShader.program, "proj_view");
     // gl.uniformMatrix4fv(prjv, false, projView);
 
-    var vertices = [
+    vertices = [
         61.7397994995117, 139.014129638672, 178.866790771484,
         57.0425949096680, 139.287994384766, 172.553298950195,
-        52.6332588195801, 139.174285888672, 168.291290283203
+        52.6332588195801, 139.174285888672, 168.291290283203,
+        49.9343223571777, 139.158569335938, 163.294281005859,
+        47.0855522155762, 139.024169921875, 158.372970581055,
+        58.0416793823242, 131.243377685547, 179.853149414063,
+        53.8179206848145, 130.746154785156, 173.396087646484,
+        50.9673805236816, 130.553924560547, 168.459442138672,
+        48.1004180908203, 130.171569824219, 163.658401489258,
+        47.0327911376953, 130.298995971680, 158.395172119141,
+        44.5878067016602, 152.413452148438, 127.619720458984,
+        46.5737419128418, 153.781738281250, 122.439125061035,
+        50.5636215209961, 155.926162719727, 118.359619140625,
+        54.1101531982422, 157.709716796875, 113.420326232910,
+        60.9065780639648, 159.683746337891, 110.268630981445,
+        45.3121032714844, 142.812438964844, 126.440490722656,
+        49.4790573120117, 145.072082519531, 121.394447326660,
+        50.6709136962891, 147.108184814453, 117.142639160156,
+        54.8323822021484, 149.705718994141, 112.750564575195,
+        60.2906494140625, 149.689758300781, 109.682693481445
     ];
 
     // Create an empty buffer object to store vertex buffer
