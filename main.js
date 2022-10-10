@@ -237,6 +237,12 @@ function glDraw() {
     epiShader.use()
     var coord = gl.getAttribLocation(epiShader.program, "coordinates");
 
+    var projV = gl.getUniformLocation(epiShader.program, 'uView')
+    gl.uniformMatrix4fv(projV, false, projView);
+
+    var vScale = gl.getUniformLocation(epiShader.program, 'volume_scale')
+    gl.uniform3fv(vScale, [0.640625, 1, 1]);
+
     // Point an attribute to the currently bound VBO
     gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
 
@@ -244,7 +250,7 @@ function glDraw() {
     gl.enableVertexAttribArray(coord);
 
     // Draw the triangle
-    gl.drawArrays(gl.POINTS, 0, 1);
+    gl.drawArrays(gl.POINTS, 0, 3);
 
     // callElectrodeProgram();
     // Wait for rendering to actually finish
@@ -314,7 +320,7 @@ function updateVolume() {
         hdr.dims[2] / longestAxis,
         hdr.dims[3] / longestAxis,
     ];
-    // console.log(volScale)
+    console.log(volScale)
     // console.log(gl.getParameter(gl.CURRENT_PROGRAM))
     shader.use();
     var vdims = gl.getUniformLocation(shader.program, "volume_dims");
@@ -555,20 +561,6 @@ window.onload = function () {
 
 function callElectrodeProgram() {
     console.log('electrode program')
-    var vertCode =
-        'attribute vec3 coordinates;' +
-
-        'void main(void) {' +
-        ' gl_Position = vec4(coordinates, 1.0);' +
-        'gl_PointSize = 100.0;' +
-        '}';
-
-    //fragment shader source code
-    var fragCode =
-        'void main(void) {' +
-
-        ' gl_FragColor = vec4(0.0, 1.0, 1.0, 0.1);' +
-        '}';
 
     // var vertShader = createShaderEpi(gl, gl.VERTEX_SHADER, vertCode);
     // var fragShader = createShaderEpi(gl, gl.FRAGMENT_SHADER, fragCode);
@@ -576,7 +568,7 @@ function callElectrodeProgram() {
 
     // gl.useProgram(program)
 
-    epiShader = new Shader(vertCode, fragCode)
+    epiShader = new Shader(verEpi, fragEpi)
     // console.log(epiShader)
     epiShader.use()
 
@@ -588,7 +580,9 @@ function callElectrodeProgram() {
     // gl.uniformMatrix4fv(prjv, false, projView);
 
     var vertices = [
-        0.0, 0.0, 0.0,
+        61.7397994995117, 139.014129638672, 178.866790771484,
+        57.0425949096680, 139.287994384766, 172.553298950195,
+        52.6332588195801, 139.174285888672, 168.291290283203
     ];
 
     // var indices = [0, 1, 2];

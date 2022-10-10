@@ -1,5 +1,25 @@
+var verEpi = `#version 300 es
+in vec3 coordinates;
+uniform mat4 uView;
+uniform vec3 volume_scale;
+
+void main() {
+	vec3 volume_translation = vec3(0.5) - volume_scale * 0.5;
+	gl_Position = uView * vec4(coordinates * volume_scale + volume_translation, 1);
+	gl_PointSize = 10.0;
+}
+`;
+
+var fragEpi = `#version 300 es
+precision mediump float;
+out vec4 fragColor;
+void main() {
+	fragColor = vec4(0.0, 1.0, 1.0, 0.1);
+}
+`;
+
 var vertShader =
-`#version 300 es
+	`#version 300 es
 #line 4
 layout(location=0) in vec3 pos;
 uniform mat4 proj_view;
@@ -16,7 +36,7 @@ void main(void) {
 }`;
 
 var fragShaderLighting =
-`#version 300 es
+	`#version 300 es
 #line 21
 precision highp int;
 precision highp float;
@@ -93,7 +113,7 @@ void main(void) {
 }`;
 
 var fragShaderGradients =
-`#version 300 es
+	`#version 300 es
 #line 98
 precision highp int;
 precision highp float;
@@ -160,7 +180,7 @@ void main(void) {
 
 
 var fragShader =
-`#version 300 es
+	`#version 300 es
 #line 165
 precision highp int;
 precision highp float;
@@ -220,7 +240,7 @@ void main(void) {
 }`;
 
 var fragShaderMIP =
-`#version 300 es
+	`#version 300 es
 #line 225
 precision highp int;
 precision highp float;
@@ -281,7 +301,7 @@ void main(void) {
 }`;
 
 var blurVertShader =
-`#version 300 es
+	`#version 300 es
 #line 286
 precision highp int;
 precision highp float;
@@ -293,7 +313,7 @@ void main() {
 }`;
 
 var blurFragShader =
-`#version 300 es
+	`#version 300 es
 #line 298
 precision highp int;
 precision highp float;
@@ -318,7 +338,7 @@ void main(void) {
 }`;
 
 var sobelFragShader =
-`#version 300 es
+	`#version 300 es
 #line 323
 precision highp int;
 precision highp float;
