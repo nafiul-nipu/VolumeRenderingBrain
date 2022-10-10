@@ -105,63 +105,6 @@
 </head>
 
 <body>
-    <div id="menu-container">
-        <input id="file-input" type="file" name="name" style="display: none;" />
-        <ul>
-            <li class="dropdown">
-                <a href="javascript:void(0)" class="dropbtn" id="FileMenu">File</a>
-                <div class="dropdown-content">
-                    <a class="viewBtn" id="Open">Open</a>
-                    <a class="viewBtn" id="SaveBitmap">Screen Shot</a>
-                    <a class="linker" href="https://github.com/rordenlab/MRIcroWeb">About</a>
-                </div>
-            </li>
-            <li class="dropdown">
-                <a href="javascript:void(0)" class="dropbtn" id="ViewMenu">View</a>
-                <div class="dropdown-content">
-                    <a class="viewBtn" id="L">Left</a>
-                    <a class="viewBtn" id="R">Right</a>
-                    <a class="viewBtn" id="P">Posterior</a>
-                    <a class="viewBtn" id="A">Anterior</a>
-                    <a class="viewBtn" id="I">Inferior</a>
-                    <a class="viewBtn" id="S">Superior</a>
-                </div>
-            </li>
-            <li class="dropdown">
-                <a href="javascript:void(0)" class="dropbtn">Color</a>
-                <div class="dropdown-content">
-                    <a class="viewBtn" id="!Gray">Gray</a>
-                    <a class="viewBtn" id="!Plasma">Plasma</a>
-                    <a class="viewBtn" id="!Viridis">Viridis</a>
-                    <a class="viewBtn" id="!Inferno">Inferno</a>
-                    <!-- <a class="viewBtn dropdown-item-checked" id="^Lighting">Lighting</a>  -->
-                    <a class="divider" id="BackColor">Background Color</a>
-                    <a class="viewBtn" id="ChangeContrast">Adjust brightness and contrast</a>
-                    <a class="viewBtn" id="OpacityInc">Harder Edges</a>
-                    <a class="viewBtn" id="OpacityDec">Softer Edges</a>
-                </div>
-            </li>
-            <li class="dropdown">
-                <a href="javascript:void(0)" class="dropbtn">Shader</a>
-                <div class="dropdown-content">
-                    <a class="viewBtn" id="^Standard">Standard</a>
-                    <a class="viewBtn" id="^Lighting">Lighting</a>
-                    <a class="viewBtn" id="^MIP">Maximum Intensity</a>
-                    <a class="viewBtn" id="^Gradients">Gradients</a>
-                </div>
-            </li>
-            <li class="dropdown">
-                <a href="javascript:void(0)" class="dropbtn">Examples</a>
-                <div class="dropdown-content">
-                    <a class="viewBtn" id="_spm152.nii.gz">spm</a>
-                    <a class="viewBtn" id="_avg152T1_LR_nifti.nii.gz">avg</a>
-                    <a class="viewBtn" id="_Chris_MRA.nii.gz">MRA</a>
-                    <a class="viewBtn" id="_Chris_T1.nii.gz">T1</a>
-                    <a class="viewBtn" id="_Chris_T2.nii.gz">T2</a>
-                </div>
-            </li>
-        </ul>
-    </div>
     <div id="gl-container" ondrop="drop(event)" ondragover="allowDrop(event)">
     	<canvas id="glcanvas"></canvas>
     </div>
@@ -174,11 +117,8 @@
 <script>
 //https://stackoverflow.com/questions/21286887/adding-check-marks-to-bootstrap-button-drop-down-items
 
-//var cubeStrip = [1,1,0, 0,1,0, 1,1,1, 0,1,1, 0,0,1, 0,1,0, 0,0,0, 1,1,0, 1,0,0, 1,1,1, 1,0,1, 0,0,1, 1,0,0, 0,0,0];
-var takeScreenShot = false;
 var cubeStrip = [0,1,0, 1,1,0, 0,1,1, 1,1,1, 1,0,1, 1,1,0, 1,0,0, 0,1,0, 0,0,0, 0,1,1, 0,0,1, 1,0,1, 0,0,0, 1,0,0];
 var container = null;
-var isBlackBackColor = true;
 var gl = null;
 var isDrawOnDemand = true;
 var canvas = null;
@@ -205,37 +145,8 @@ var img;
 var colorName = "";
 var colorOpacity = 2;
 const center = vec3.set(vec3.create(), 0.5, 0.5, 0.5);
-var openDialog = document.createElement('input');
-openDialog.type = 'file';
-openDialog.onchange = e => {
-	selectVolume(e.target.files[0], false);
-}
-document.addEventListener("keydown", function(evt) {
-	if (evt.key == "z")  adjustOpacity(0.9);
-	if (evt.key == "a") adjustOpacity(1.1);
-	if (evt.key == "w") adjustQuality(1.1);
-	if (evt.key == "q")  adjustQuality(0.9);
-});
-if (isDrawOnDemand)
-	document.addEventListener('cameraRedraw', e => glDraw() );
 
-function adjustQuality(scale) {
-		samplingRate = samplingRate * scale;
-		samplingRate = Math.min(samplingRate, 10.0);
-		samplingRate = Math.max(samplingRate, 0.7);
-		gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
-		console.log('quality ', samplingRate);
-		if (isDrawOnDemand) glDraw();
-}
 
-function adjustOpacity(scale) {
-		colorOpacity = colorOpacity * scale;
-		colorOpacity = Math.min(colorOpacity, 10.0);
-		colorOpacity = Math.max(colorOpacity, 0.1);
-		selectColormap(colorName);
-		console.log('opacity ', colorOpacity);
-		if (isDrawOnDemand) glDraw();
-}
 
 var loadVolume = function(url, isURL, onload) {
 	if (!isURL) {
@@ -362,15 +273,6 @@ function gradientGL() {
 	gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 }
 
-function reportMat(m){
-	console.log("m = [%.2f %.2f %.2f %.2f; %.2f %.2f %.2f %.2f; %.2f %.2f %.2f %.2f; %.2f %.2f %.2f %.2f]",
-		m[0],m[1],m[2],m[3],
-		m[4],m[5],m[6],m[7],
-		m[8],m[9],m[10],m[11],
-		m[12],m[13],m[14],m[15],
-
-		);
-}
 
 function glDraw(){
 			gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
@@ -537,15 +439,8 @@ var selectVolume = function(url, isURL = true) {
 	});
 } // selectVolume()
 
-function textureFromPixelArray(gl, dataArray, type, width, height) {
-    var dataTypedArray = new Uint8Array(dataArray); // Don't need to do this if the data is already in a typed array
-    var texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, type, width, height, 0, type, gl.UNSIGNED_BYTE, dataTypedArray);
-    // Other texture setup here, like filter modes and mipmap generation
-    return texture;
-} // textureFromPixelArray()
 
+/* called from select colormap */
 function makeLut(Rs, Gs, Bs, As, Is) {
 //create color lookup table provided arrays of reds, greens, blues, alphas and intensity indices
 //intensity indices should be in increasing order with the first value 0 and the last 255.
@@ -594,20 +489,15 @@ var selectColormap = function(lutName) {
 } // selectColormap()
 
 window.onload = function(){
-	//menu items
-	var buttons = document.getElementsByClassName("viewBtn");
-	for (let i = 0; i < buttons.length; i++)
-		buttons[i].addEventListener("click", onButtonClick, false);
-	buttons = document.getElementsByClassName("divider");
-	for (let i = 0; i < buttons.length; i++)
-		buttons[i].addEventListener("click", onButtonClick, false);
 	gl = canvas.getContext("webgl2");
 	if (!gl) {
 		alert("Unable to initialize WebGL2. Your browser may not support it");
 		return;
 	}
+
 	window.addEventListener('resize', onWindowResize, false);
 	onWindowResize(true);
+
 	// Register mouse and touch listeners
 	var controller = new Controller();
 	controller.mousemove = function(prev, cur, evt) {
@@ -622,6 +512,8 @@ window.onload = function(){
 	controller.pinch = controller.wheel;
 	controller.twoFingerDrag = function(drag) { camera.pan(drag); };
 	controller.registerForCanvas(canvas);
+
+
 	// Setup VAO and VBO to render the cube to run the raymarching shader
 	vao = gl.createVertexArray();
 	gl.bindVertexArray(vao);
@@ -630,11 +522,16 @@ window.onload = function(){
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeStrip), gl.STATIC_DRAW);
 	gl.enableVertexAttribArray(0);
 	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+
 	sobelShader = new Shader(blurVertShader, sobelFragShader);
 	sobelShader.use();
 	blurShader = new Shader(blurVertShader, blurFragShader);
 	blurShader.use();
+
 	setShader(1); //Lighting shader
+
+	
 	// Setup required OpenGL state for drawing the back faces and
 	// composting with the background color
 	gl.enable(gl.CULL_FACE);
@@ -645,7 +542,8 @@ window.onload = function(){
 	// Load the default colormap and upload it, after which we
 	// load the default volume.
 	selectColormap("Gray");
-	selectVolume("spmSmall.nii.gz");
+	/* selectVolume("spmSmall.nii.gz"); */
+	selectVolume("primary.nii.gz");
 } // window.onload()
 
 function setShader(shaderInt) { //0=default, 1=lighting, 2=Maximum Intensity
@@ -664,7 +562,7 @@ function setShader(shaderInt) { //0=default, 1=lighting, 2=Maximum Intensity
 	gl.uniform1f(shader.uniforms["dt_scale"], 1.0);
 }
 
-
+/* window resize handler */
 function onWindowResize(isInit = false) {
 	WIDTH = canvas.clientWidth;
   	HEIGHT = canvas.clientHeight;//menuHeight;
@@ -689,135 +587,7 @@ function onWindowResize(isInit = false) {
 	if ((shader !==null) && (isDrawOnDemand)) glDraw();
 } //onWindowResize()
 
-function onButtonClick(event) {
-	var el = this.parentNode;
-	el.style.display = "none";
-	setTimeout(function() { //close menu
-		el.style.removeProperty("display");
-	}, 500);
-	if (event.target.id === "ChangeContrast") {
-		str = prompt("Set display intensity minimum and maximum", hdr.cal_min.toString()+" "+hdr.cal_max.toString() );
-		//if (isNaN(n))
-		//	return;
-		var strs = str.split(" ");
-		if (strs.length < 2) return;
-		hdr.cal_min = +strs[0];
-		hdr.cal_max = +strs[1];
-		updateVolume();
-		return;
-	}
-	if (event.target.id === "SaveBitmap") {
-		takeScreenShot = true;
-		if (isDrawOnDemand) glDraw();
-		return;
-	}
-	if(event.target.id.charAt(0) === '^') { //shader
-		s = event.target.id.substr(1);
-		console.log("Setting shader to "+ s);
-		if (s === "Lighting")
-			setShader(1);
-		else if (s === "MIP")
-			setShader(2);
-		else if (s === "Gradients")
-			setShader(3);
-		else
-			setShader(0);
-        updateVolume();
-		//this.toggleClass('dropdown-item-checked');
-		if (isDrawOnDemand) glDraw();
-		return;
-	}
-	if(event.target.id.charAt(0) === '!') { //load color scheme
-		s = event.target.id.substr(1);
-		colorOpacity = 2.0;
-		selectColormap(s);
-		if (isDrawOnDemand) glDraw();
-		return;
-	}
-	if(event.target.id.charAt(0) === '_') { //load NIfTI volume
-		s = event.target.id.substr(1);
-		selectVolume(s);
-		return;
-	}
-	if (event.target.id === "Open") {
-		openDialog.click();
-		return;
-	}
-	if (event.target.id === "About") {
-		alert("MRIcroGL for Web by Chris Rorden. Using Will Usher's Volume Raycaster");
-		return;
-	}
-	if (event.target.id === "OpacityInc") {
-		adjustOpacity(1.2);
-		return;
-	}
-	if (event.target.id === "OpacityDec") {
-		adjustOpacity(0.8);
-		return;
-	}
-	if (event.target.id === "BackColor") {
-		if (isBlackBackColor)
-			document.body.style.background = "#FFFFFF";
-		else
-			document.body.style.background = "#000000";
-		isBlackBackColor = !isBlackBackColor;
-		return;
-	}
-	const kRot = Math.sqrt(0.5);
-	if (event.target.id === "R") {
-		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-		camera.rotateY([0.0,kRot]);
-		camera.rotateY([-kRot,0.0]);
-		if (isDrawOnDemand) glDraw();
-		return;
-	}
-	if (event.target.id === "L") {
-		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-		camera.rotateY([0.0,kRot]);
-		camera.rotateY([kRot,0.0]);
-		if (isDrawOnDemand) glDraw();
-		return;
-	}
-	if (event.target.id === "A") {
-		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-		camera.rotateY([0.0,kRot]);
-		camera.rotateY([kRot*2,0.0]);
-		if (isDrawOnDemand) glDraw();
-		return;
-	}
-	if (event.target.id === "P") {
-		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-		camera.rotateY([0.0,kRot]);
-		if (isDrawOnDemand) glDraw();
-		return;
-	}
-	if (event.target.id === "I") {
-		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-		camera.rotateY([-2*kRot,0]);
-		if (isDrawOnDemand) glDraw();
-		return;
-	}
-	if (event.target.id === "S") {
-		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-		if (isDrawOnDemand) glDraw();
-		return;
-	}
-	console.log('Unknown menu item ', event.target.id);
-} //onButtonClick()
 
-function allowDrop(ev) {
-  ev.preventDefault();
-}
-
-function drag(ev) {
-  ev.dataTransfer.setData("text", ev.target.id);
-}
-
-function drop(ev) {
-  ev.preventDefault();
-  console.log(ev.dataTransfer.files[0])
-  selectVolume(ev.dataTransfer.files[0], false);
-}
 
 </script>
 </html>
