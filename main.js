@@ -242,7 +242,7 @@ function glDraw() {
     gl.uniformMatrix4fv(projV, false, projView);
 
     var vScale = gl.getUniformLocation(epiShader.program, 'volume_scale')
-    gl.uniform3fv(vScale, [0.640625, 1, 1]);
+    gl.uniform3fv(vScale, [1, 1, 1]);
 
     // Point an attribute to the currently bound VBO
     gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
@@ -322,16 +322,19 @@ function updateVolume() {
         hdr.dims[2] / longestAxis,
         hdr.dims[3] / longestAxis,
     ];
-    console.log(volScale)
+    
     // console.log(gl.getParameter(gl.CURRENT_PROGRAM))
     shader.use();
     var vdims = gl.getUniformLocation(shader.program, "volume_dims");
-    gl.uniform3iv(vdims, [
+    var volDims = [
         hdr.dims[1],
         hdr.dims[2],
         hdr.dims[3],
-    ]);
-    gl.uniform3fv(shader.uniforms["volume_scale"], volScale);
+    ]
+    gl.uniform3iv(vdims, volDims);
+
+    console.log(volScale, volDims, longestAxis)
+    gl.uniform3fv(shader.uniforms["volume_scale"], [1,1,1]);
     newVolumeUpload = true;
     //gradientGL();
     if (!volumeTexture) {
@@ -440,7 +443,7 @@ var selectVolume = function (url, isURL = true) {
             hdr.cal_min = mn;
             hdr.cal_max = mx;
         }
-        console.log(hdr)
+        // console.log(hdr)
         updateVolume();
     });
 }; // selectVolume()
@@ -650,7 +653,7 @@ function callBrainProgram() {
     // Load the default colormap and upload it, after which we
     // load the default volume.
     selectColormap("Gray");
-    /* selectVolume("spmSmall.nii.gz"); */
+    // selectVolume("spmSmall.nii.gz");
     selectVolume("primary.nii.gz");
 }
 
