@@ -9,7 +9,12 @@ var gl = null;
 var isDrawOnDemand = false;
 var canvas = null;
 var shader = null;
+
 var epiShader = null;
+var coord = null;
+var projV = null;
+var vScale = null;
+
 var blurShader = null;
 var sobelShader = null;
 var volumeTexture = null;
@@ -236,12 +241,8 @@ function glDraw() {
 
     // electrode
     epiShader.use()
-    var coord = gl.getAttribLocation(epiShader.program, "coordinates");
 
-    var projV = gl.getUniformLocation(epiShader.program, 'uView')
     gl.uniformMatrix4fv(projV, false, projView);
-
-    var vScale = gl.getUniformLocation(epiShader.program, 'volume_scale')
     gl.uniform3fv(vScale, [1, 1, 1]);
 
     // Point an attribute to the currently bound VBO
@@ -322,7 +323,7 @@ function updateVolume() {
         hdr.dims[2] / longestAxis,
         hdr.dims[3] / longestAxis,
     ];
-    
+
     // console.log(gl.getParameter(gl.CURRENT_PROGRAM))
     shader.use();
     var vdims = gl.getUniformLocation(shader.program, "volume_dims");
@@ -334,7 +335,7 @@ function updateVolume() {
     gl.uniform3iv(vdims, volDims);
 
     console.log(volScale, volDims, longestAxis)
-    gl.uniform3fv(shader.uniforms["volume_scale"], [1,1,1]);
+    gl.uniform3fv(shader.uniforms["volume_scale"], [1, 1, 1]);
     newVolumeUpload = true;
     //gradientGL();
     if (!volumeTexture) {
@@ -579,14 +580,11 @@ function callElectrodeProgram() {
     // console.log(epiShader)
     epiShader.use()
 
-    // var eye = camera.eyePos();
-    // gl.uniform3fv(shader.uniforms["eye_pos"], eye);
-    // var vScale = gl.getUniformLocation(epiShader.program, "volume_scale");
-    // gl.uniform3fv(vScale, [0.640625, 1, 1]);
-    // var prjv = gl.getUniformLocation(epiShader.program, "proj_view");
-    // gl.uniformMatrix4fv(prjv, false, projView);
+    coord = gl.getAttribLocation(epiShader.program, "coordinates");
+    projV = gl.getUniformLocation(epiShader.program, 'uView')
+    vScale = gl.getUniformLocation(epiShader.program, 'volume_scale')
 
-    vertices = [
+    vertices = [0, 0, 0,
         61.7397994995117, 139.014129638672, 178.866790771484,
         57.0425949096680, 139.287994384766, 172.553298950195,
         52.6332588195801, 139.174285888672, 168.291290283203,

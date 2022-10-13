@@ -6,6 +6,7 @@ uniform vec3 volume_scale;
 void main() {
 	vec3 volume_translation = vec3(0.5) - volume_scale * 0.5;
 	gl_Position = uView * vec4(coordinates * volume_scale + volume_translation, 1);
+	// gl_Position = vec4(coordinates, 1);
 	gl_PointSize = 10.0;
 }
 `;
