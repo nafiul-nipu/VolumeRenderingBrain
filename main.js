@@ -8,7 +8,9 @@ var isBlackBackColor = true;
 var gl = null;
 var isDrawOnDemand = false;
 var canvas = null;
+
 var shaderV1 = null;
+var shaderV2 = null;
 
 var epiShader = null;
 var coord = null;
@@ -19,10 +21,16 @@ var blurShader = null;
 var sobelShader = null;
 var volumeTexture = null;
 var gradientTexture = null;
-var colormap = null;
+var colormap = [];
 var proj = null;
+
 var vao = null;
 var vbo = null;
+
+var epiVolume = [164, 256, 256]
+var vaoEpi = null;
+var vboEpi = null;
+var electrodeData = null;
 //var tex = null;
 var camera = null;
 var projView = null;
@@ -215,6 +223,7 @@ function gradientGL(shader) {
 
 function glDraw(shader) {
     // console.log('brain gl draw')
+    // console.log(shaderV1, shaderV2)
     shader.use()
     gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -258,83 +267,127 @@ function glDraw(shader) {
     // callElectrodeProgram();
     // Wait for rendering to actually finish
     gl.finish();
+    console.log('draw finished')
 
 }
 
-function updateVolume(shader) {
+function updateVolume(shader, type) {
     console.log('update volume')
     //load volume or change contrast
     //convert data to 8-bit image
-    vox = hdr.dims[1] * hdr.dims[2] * hdr.dims[3];
-    img8 = new Uint8Array(vox);
-    if (hdr.datatypeCode === 2)
-        //data already uint8
-        imgRaw = new Uint8Array(img);
-    else if (hdr.datatypeCode === 4) var imgRaw = new Int16Array(img);
-    else if (hdr.datatypeCode === 16) var imgRaw = new Float32Array(img);
-    else if (hdr.datatypeCode === 512) var imgRaw = new Uint16Array(img);
-    mn = hdr.cal_min;
-    mx = hdr.cal_max;
-    var scale = 1;
-    if (mx > mn) scale = 255 / (mx - mn);
-    for (i = 0; i < vox - 1; i++) {
-        v = imgRaw[i];
-        v = v * hdr.scl_slope + hdr.scl_inter;
-        if (v < mn) img8[i] = 0;
-        else if (v > mx) img8[i] = 255;
-        else img8[i] = (v - mn) * scale;
+    console.log(hdr)
+    let dims;
+    if (type === 'brain') {
+        dims = [hdr.dims[1], hdr.dims[2], hdr.dims[3]]
+        vox = hdr.dims[1] * hdr.dims[2] * hdr.dims[3];
+        img8 = new Uint8Array(vox);
+        if (hdr.datatypeCode === 2)
+            //data already uint8
+            imgRaw = new Uint8Array(img);
+        else if (hdr.datatypeCode === 4) var imgRaw = new Int16Array(img);
+        else if (hdr.datatypeCode === 16) var imgRaw = new Float32Array(img);
+        else if (hdr.datatypeCode === 512) var imgRaw = new Uint16Array(img);
+        mn = hdr.cal_min;
+        mx = hdr.cal_max;
+        var scale = 1;
+        if (mx > mn) scale = 255 / (mx - mn);
+        for (i = 0; i < vox - 1; i++) {
+            v = imgRaw[i];
+            v = v * hdr.scl_slope + hdr.scl_inter;
+            if (v < mn) img8[i] = 0;
+            else if (v > mx) img8[i] = 255;
+            else img8[i] = (v - mn) * scale;
+        }
+
+        tex = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_3D, tex);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.texStorage3D(
+            gl.TEXTURE_3D,
+            1,
+            gl.R8,
+            dims[0],
+            dims[1],
+            dims[2]
+        );
+        gl.texSubImage3D(
+            gl.TEXTURE_3D,
+            0,
+            0,
+            0,
+            0,
+            dims[0],
+            dims[1],
+            dims[2],
+            gl.RED,
+            gl.UNSIGNED_BYTE,
+            img8
+        );
+
+    } else if (type === 'electrode') {
+        // img8 = electrodeData
+        dims = epiVolume
+
+        tex = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_3D, tex);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.texStorage3D(
+            gl.TEXTURE_3D,
+            1,
+            gl.R8,
+            dims[0],
+            dims[1],
+            dims[2]
+        );
+        gl.texSubImage3D(
+            gl.TEXTURE_3D,
+            0,
+            0,
+            0,
+            0,
+            dims[0],
+            dims[1],
+            dims[2],
+            gl.RED,
+            gl.UNSIGNED_BYTE,
+            electrodeData
+        );
     }
-    tex = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_3D, tex);
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    gl.texStorage3D(
-        gl.TEXTURE_3D,
-        1,
-        gl.R8,
-        hdr.dims[1],
-        hdr.dims[2],
-        hdr.dims[3]
-    );
-    gl.texSubImage3D(
-        gl.TEXTURE_3D,
-        0,
-        0,
-        0,
-        0,
-        hdr.dims[1],
-        hdr.dims[2],
-        hdr.dims[3],
-        gl.RED,
-        gl.UNSIGNED_BYTE,
-        img8
-    );
+
+
     var longestAxis = Math.max(
-        hdr.dims[1],
-        Math.max(hdr.dims[2], hdr.dims[3])
+        dims[0],
+        Math.max(dims[1], dims[2])
     );
-    var volScale = [
-        hdr.dims[1] / longestAxis,
-        hdr.dims[2] / longestAxis,
-        hdr.dims[3] / longestAxis,
-    ];
+    // var volScale = [
+    //     dims[0] / longestAxis,
+    //     dims[2] / longestAxis,
+    //     dims[3] / longestAxis,
+    // ];
 
     // console.log(gl.getParameter(gl.CURRENT_PROGRAM))
     shader.use();
     var vdims = gl.getUniformLocation(shader.program, "volume_dims");
     var volDims = [
-        hdr.dims[1],
-        hdr.dims[2],
-        hdr.dims[3],
+        dims[0],
+        dims[1],
+        dims[2],
     ]
     gl.uniform3iv(vdims, volDims);
 
-    console.log(volScale, volDims, longestAxis)
+    console.log(volDims, longestAxis)
     gl.uniform3fv(shader.uniforms["volume_scale"], [1, 1, 1]);
     newVolumeUpload = true;
     //gradientGL();
@@ -383,6 +436,22 @@ function updateVolume(shader) {
     gradientGL(shader);
     glDraw(shader);
 } //updateVolume()
+
+var selectElectrodeVolume = function (url, shader) {
+    let vdata = []
+    d3.csv(url, data => {
+        vdata.push((parseFloat(data['value'])));
+    }).then(function () {
+        electrodeData = new Uint8Array(vdata)
+        updateVolume(shader, 'electrode')
+        console.log("selectElectrodeVolume done")
+    })
+
+
+    // d3.csv(url, function (data) {
+    //     console.log(data)
+    // })
+}
 
 var selectVolume = function (url, shader, isURL = true) {
     console.log('select volume')
@@ -445,7 +514,7 @@ var selectVolume = function (url, shader, isURL = true) {
             hdr.cal_max = mx;
         }
         // console.log(hdr)
-        updateVolume(shader);
+        updateVolume(shader, 'brain');
     });
 }; // selectVolume()
 
@@ -476,7 +545,7 @@ function makeLut(Rs, Gs, Bs, As, Is) {
     return lut;
 } // makeLut()
 
-var selectColormap = function (lutName) {
+var selectColormap = function (lutName, type) {
     console.log('colormap')
     var lut = makeLut([0, 255], [0, 255], [0, 255], [0, 128], [0, 255]); //gray
     if (lutName === "Plasma")
@@ -504,25 +573,55 @@ var selectColormap = function (lutName) {
             [0, 64, 192, 255]
         ); //inferno
     colorName = lutName;
-    if (colormap !== null) gl.deleteTexture(colormap); //release colormap');
-    colormap = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, colormap);
-    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 256, 1);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texSubImage2D(
-        gl.TEXTURE_2D,
-        0,
-        0,
-        0,
-        256,
-        1,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        lut
-    );
+    if (colormap !== null && colormap.length == 2) {
+        gl.deleteTexture(colormap[0]);
+        gl.deleteTexture(colormap[1]);
+    }  //release colormap');
+    if (type === 'brain') {
+        cm = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, cm);
+        gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 256, 1);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texSubImage2D(
+            gl.TEXTURE_2D,
+            0,
+            0,
+            0,
+            256,
+            1,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            lut
+        );
+
+        colormap.push(cm)
+    }
+    else if (type === 'electrode') {
+        cm = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, cm);
+        gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 256, 1);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texSubImage2D(
+            gl.TEXTURE_2D,
+            0,
+            0,
+            0,
+            256,
+            1,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            lut
+        );
+
+        colormap.push(cm)
+    }
+
 }; // selectColormap()
 
 window.onload = function () {
@@ -563,63 +662,41 @@ window.onload = function () {
     //gl.clearColor(1, 0.5, 0.5, 3);
 
     callBrainProgram();
-    callElectrodeProgram();
+    // callElectrodeProgram();
     // callBrainProgram();
 }; // window.onload()
 
 function callElectrodeProgram() {
-    console.log('electrode program')
+    console.log("electrode program")
+    // sobelShader = new Shader(blurVertShader, sobelFragShader);
+    // sobelShader.use();
+    // blurShader = new Shader(blurVertShader, blurFragShader);
+    // blurShader.use();
 
-    // var vertShader = createShaderEpi(gl, gl.VERTEX_SHADER, vertCode);
-    // var fragShader = createShaderEpi(gl, gl.FRAGMENT_SHADER, fragCode);
-    // var program = createProgramEpi(gl, vertShader, fragShader)
+    // Setup VAO and VBO to render the cube to run the raymarching shader
+    vaoEpi = gl.createVertexArray();
+    gl.bindVertexArray(vaoEpi);
+    vboEpi = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vboEpi);
+    gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array(cubeStrip),
+        gl.STATIC_DRAW
+    );
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 
-    // gl.useProgram(program)
 
-    epiShader = new Shader(verEpi, fragEpi)
-    // console.log(epiShader)
-    epiShader.use()
 
-    coord = gl.getAttribLocation(epiShader.program, "coordinates");
-    projV = gl.getUniformLocation(epiShader.program, 'uView')
-    vScale = gl.getUniformLocation(epiShader.program, 'volume_scale')
+    shaderV2 = setShader(1, shaderV2); //Lighting shader
+    console.log(shaderV2)
 
-    vertices = [0, 0, 0,
-        61.7397994995117, 139.014129638672, 178.866790771484,
-        57.0425949096680, 139.287994384766, 172.553298950195,
-        52.6332588195801, 139.174285888672, 168.291290283203,
-        49.9343223571777, 139.158569335938, 163.294281005859,
-        47.0855522155762, 139.024169921875, 158.372970581055,
-        58.0416793823242, 131.243377685547, 179.853149414063,
-        53.8179206848145, 130.746154785156, 173.396087646484,
-        50.9673805236816, 130.553924560547, 168.459442138672,
-        48.1004180908203, 130.171569824219, 163.658401489258,
-        47.0327911376953, 130.298995971680, 158.395172119141,
-        44.5878067016602, 152.413452148438, 127.619720458984,
-        46.5737419128418, 153.781738281250, 122.439125061035,
-        50.5636215209961, 155.926162719727, 118.359619140625,
-        54.1101531982422, 157.709716796875, 113.420326232910,
-        60.9065780639648, 159.683746337891, 110.268630981445,
-        45.3121032714844, 142.812438964844, 126.440490722656,
-        49.4790573120117, 145.072082519531, 121.394447326660,
-        50.6709136962891, 147.108184814453, 117.142639160156,
-        54.8323822021484, 149.705718994141, 112.750564575195,
-        60.2906494140625, 149.689758300781, 109.682693481445
-    ];
 
-    // Create an empty buffer object to store vertex buffer
-    var vertex_buffer = gl.createBuffer();
-    // Bind appropriate array buffer to it
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-    // Pass the vertex data to the buffer
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-    // Unbind the buffer
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-    // console.log(new Int16Array(vertices))
-    // Bind vertex buffer object
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-
+    // Load the default colormap and upload it, after which we
+    // load the default volume.
+    selectColormap("Plasma", 'electrode');
+    // selectVolume("spmSmall.nii.gz");
+    shaderV2 = selectElectrodeVolume("electrode_volume.csv", shaderV2);
 
 }
 
@@ -651,7 +728,7 @@ function callBrainProgram() {
 
     // Load the default colormap and upload it, after which we
     // load the default volume.
-    selectColormap("Gray");
+    selectColormap("Gray", 'brain');
     // selectVolume("spmSmall.nii.gz");
     shaderV1 = selectVolume("primary.nii.gz", shaderV1);
 }
