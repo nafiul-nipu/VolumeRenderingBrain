@@ -8,7 +8,7 @@ var isBlackBackColor = true;
 var gl = null;
 var isDrawOnDemand = false;
 var canvas = null;
-var shader = null;
+var shaderV1 = null;
 
 var epiShader = null;
 var coord = null;
@@ -131,7 +131,7 @@ function bindBlankGL() {
     return texR;
 }
 
-function gradientGL() {
+function gradientGL(shader) {
     console.log('gradient gl')
     var faceStrip = [0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0];
     var vao2 = gl.createVertexArray();
@@ -213,7 +213,7 @@ function gradientGL() {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 }
 
-function glDraw() {
+function glDraw(shader) {
     // console.log('brain gl draw')
     shader.use()
     gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
@@ -239,21 +239,21 @@ function glDraw() {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, cubeStrip.length / 3);
 
 
-    // electrode
-    epiShader.use()
+    // // electrode
+    // epiShader.use()
 
-    gl.uniformMatrix4fv(projV, false, projView);
-    gl.uniform3fv(vScale, [1, 1, 1]);
+    // gl.uniformMatrix4fv(projV, false, projView);
+    // gl.uniform3fv(vScale, [1, 1, 1]);
 
-    // Point an attribute to the currently bound VBO
-    gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
+    // // Point an attribute to the currently bound VBO
+    // gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
 
-    // Enable the attribute
-    gl.enableVertexAttribArray(coord);
+    // // Enable the attribute
+    // gl.enableVertexAttribArray(coord);
 
-    // Draw the triangle
-    // console.log(vertices.length / 3)
-    gl.drawArrays(gl.POINTS, 0, vertices.length / 3);
+    // // Draw the triangle
+    // // console.log(vertices.length / 3)
+    // gl.drawArrays(gl.POINTS, 0, vertices.length / 3);
 
     // callElectrodeProgram();
     // Wait for rendering to actually finish
@@ -261,7 +261,7 @@ function glDraw() {
 
 }
 
-function updateVolume() {
+function updateVolume(shader) {
     console.log('update volume')
     //load volume or change contrast
     //convert data to 8-bit image
@@ -356,7 +356,7 @@ function updateVolume() {
                     samplingRate = 1.0;
                     gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
                 }
-                glDraw();
+                glDraw(shader);
                 var endTime = new Date();
                 var renderTime = endTime - startTime;
                 var targetSamplingRate = renderTime / targetFrameTime;
@@ -378,13 +378,13 @@ function updateVolume() {
     } else {
         gl.deleteTexture(volumeTexture);
         volumeTexture = tex;
-        if (isDrawOnDemand) glDraw();
+        if (isDrawOnDemand) glDraw(shader);
     }
-    gradientGL();
-    glDraw();
+    gradientGL(shader);
+    glDraw(shader);
 } //updateVolume()
 
-var selectVolume = function (url, isURL = true) {
+var selectVolume = function (url, shader, isURL = true) {
     console.log('select volume')
     loadVolume(url, isURL, function (file, xhdr, ximg) {
         console.log('load volume')
@@ -445,7 +445,7 @@ var selectVolume = function (url, isURL = true) {
             hdr.cal_max = mx;
         }
         // console.log(hdr)
-        updateVolume();
+        updateVolume(shader);
     });
 }; // selectVolume()
 
@@ -645,17 +645,18 @@ function callBrainProgram() {
 
 
 
-    setShader(1); //Lighting shader
+    shaderV1 = setShader(1, shaderV1); //Lighting shader
+    console.log(shaderV1)
 
 
     // Load the default colormap and upload it, after which we
     // load the default volume.
     selectColormap("Gray");
     // selectVolume("spmSmall.nii.gz");
-    selectVolume("primary.nii.gz");
+    shaderV1 = selectVolume("primary.nii.gz", shaderV1);
 }
 
-function setShader(shaderInt) {
+function setShader(shaderInt, shader) {
     console.log('set shader')
     //0=default, 1=lighting, 2=Maximum Intensity
     if (shaderInt === 3) shader = new Shader(vertShader, fragShaderGradients);
@@ -669,6 +670,8 @@ function setShader(shaderInt) {
     gl.uniform1i(shader.uniforms["colormap"], 1);
     gl.uniform1i(shader.uniforms["gradients"], 2);
     gl.uniform1f(shader.uniforms["dt_scale"], 1.0);
+
+    return shader
 }
 
 /* window resize handler */
@@ -699,5 +702,5 @@ function onWindowResize(isInit = false) {
     //if (isInit) return;
     //samplingRate = 1.0;
     //gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
-    if (shader !== null && isDrawOnDemand) glDraw();
+    if (shaderV1 !== null && isDrawOnDemand) glDraw(shaderV1);
 } //onWindowResize()
