@@ -20,6 +20,7 @@ var vScale = null;
 var blurShader = null;
 var sobelShader = null;
 var volumeTexture = null;
+var electrodeTexture = null;
 var gradientTexture = null;
 var colormap = [];
 var proj = null;
@@ -139,7 +140,7 @@ function bindBlankGL() {
     return texR;
 }
 
-function gradientGL(shader) {
+function gradientGL() {
     console.log('gradient gl')
     var faceStrip = [0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0];
     var vao2 = gl.createVertexArray();
@@ -161,7 +162,7 @@ function gradientGL(shader) {
     tempTex3D = bindBlankGL();
     blurShader.use();
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_3D, tex);
+    gl.bindTexture(gl.TEXTURE_3D, tex1);
     gl.uniform1i(blurShader.uniforms["intensityVol"], 1);
     gl.uniform1f(blurShader.uniforms["dX"], 0.7 / hdr.dims[1]);
     gl.uniform1f(blurShader.uniforms["dY"], 0.7 / hdr.dims[2]);
@@ -211,7 +212,7 @@ function gradientGL(shader) {
     gl.deleteFramebuffer(fb);
     gl.deleteTexture(tempTex3D);
     //return to volume rendering shader
-    shader.use();
+    shaderV1.use();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.activeTexture(gl.TEXTURE0);
@@ -219,20 +220,27 @@ function gradientGL(shader) {
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_3D, gradientTexture);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+
+    shaderV2.use();
+    gl.bindVertexArray(vaoEpi);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vboEpi);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_3D, electrodeTexture);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_3D, gradientTexture);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 }
 
-function glDraw(shader) {
+function glDraw() {
     // console.log('brain gl draw')
     // console.log(shaderV1, shaderV2)
-    shader.use()
-    gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
+
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     projView = mat4.mul(projView, proj, camera.camera);
-    gl.uniformMatrix4fv(shader.uniforms["proj_view"], false, projView);
     //var eye = [camera.invCamera[12], camera.invCamera[13], camera.invCamera[14]];
     var eye = camera.eyePos();
-    gl.uniform3fv(shader.uniforms["eye_pos"], eye);
     //Lighting
     //"Head-light" with light at camera location:
     //gl.uniform3fv(shader.uniforms["light_pos"], eye);
@@ -243,161 +251,159 @@ function glDraw(shader) {
     light[0] = eye[0] + up[0] * mx;
     light[1] = eye[1] + up[1] * mx;
     light[2] = eye[2] + up[2] * mx;
-    gl.uniform3fv(shader.uniforms["light_pos"], light);
+
+    shaderV1.use()
+    gl.uniform1f(shaderV1.uniforms["dt_scale"], samplingRate);
+    gl.uniformMatrix4fv(shaderV1.uniforms["proj_view"], false, projView);
+    gl.uniform3fv(shaderV1.uniforms["eye_pos"], eye);
+    gl.uniform3fv(shaderV1.uniforms["light_pos"], light);
     //draw cube
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, cubeStrip.length / 3);
 
 
-    // // electrode
-    // epiShader.use()
+    shaderV2.use()
+    gl.uniform1f(shaderV2.uniforms["dt_scale"], samplingRate);
+    gl.uniformMatrix4fv(shaderV2.uniforms["proj_view"], false, projView);
+    gl.uniform3fv(shaderV2.uniforms["eye_pos"], eye);
+    gl.uniform3fv(shaderV2.uniforms["light_pos"], light);
+    //draw cube
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, cubeStrip.length / 3);
 
-    // gl.uniformMatrix4fv(projV, false, projView);
-    // gl.uniform3fv(vScale, [1, 1, 1]);
-
-    // // Point an attribute to the currently bound VBO
-    // gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
-
-    // // Enable the attribute
-    // gl.enableVertexAttribArray(coord);
-
-    // // Draw the triangle
-    // // console.log(vertices.length / 3)
-    // gl.drawArrays(gl.POINTS, 0, vertices.length / 3);
-
-    // callElectrodeProgram();
-    // Wait for rendering to actually finish
     gl.finish();
     console.log('draw finished')
 
 }
 
-function updateVolume(shader, type) {
+function updateVolume() {
     console.log('update volume')
     //load volume or change contrast
     //convert data to 8-bit image
-    console.log(hdr)
-    let dims;
-    if (type === 'brain') {
-        dims = [hdr.dims[1], hdr.dims[2], hdr.dims[3]]
-        vox = hdr.dims[1] * hdr.dims[2] * hdr.dims[3];
-        img8 = new Uint8Array(vox);
-        if (hdr.datatypeCode === 2)
-            //data already uint8
-            imgRaw = new Uint8Array(img);
-        else if (hdr.datatypeCode === 4) var imgRaw = new Int16Array(img);
-        else if (hdr.datatypeCode === 16) var imgRaw = new Float32Array(img);
-        else if (hdr.datatypeCode === 512) var imgRaw = new Uint16Array(img);
-        mn = hdr.cal_min;
-        mx = hdr.cal_max;
-        var scale = 1;
-        if (mx > mn) scale = 255 / (mx - mn);
-        for (i = 0; i < vox - 1; i++) {
-            v = imgRaw[i];
-            v = v * hdr.scl_slope + hdr.scl_inter;
-            if (v < mn) img8[i] = 0;
-            else if (v > mx) img8[i] = 255;
-            else img8[i] = (v - mn) * scale;
-        }
-
-        tex = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE2);
-        gl.bindTexture(gl.TEXTURE_3D, tex);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-        gl.texStorage3D(
-            gl.TEXTURE_3D,
-            1,
-            gl.R8,
-            dims[0],
-            dims[1],
-            dims[2]
-        );
-        gl.texSubImage3D(
-            gl.TEXTURE_3D,
-            0,
-            0,
-            0,
-            0,
-            dims[0],
-            dims[1],
-            dims[2],
-            gl.RED,
-            gl.UNSIGNED_BYTE,
-            img8
-        );
-
-    } else if (type === 'electrode') {
-        // img8 = electrodeData
-        dims = epiVolume
-
-        tex = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE3);
-        gl.bindTexture(gl.TEXTURE_3D, tex);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-        gl.texStorage3D(
-            gl.TEXTURE_3D,
-            1,
-            gl.R8,
-            dims[0],
-            dims[1],
-            dims[2]
-        );
-        gl.texSubImage3D(
-            gl.TEXTURE_3D,
-            0,
-            0,
-            0,
-            0,
-            dims[0],
-            dims[1],
-            dims[2],
-            gl.RED,
-            gl.UNSIGNED_BYTE,
-            electrodeData
-        );
+    // dims = [hdr.dims[1], hdr.dims[2], hdr.dims[3]]
+    vox = hdr.dims[1] * hdr.dims[2] * hdr.dims[3];
+    img8 = new Uint8Array(vox);
+    if (hdr.datatypeCode === 2)
+        //data already uint8
+        imgRaw = new Uint8Array(img);
+    else if (hdr.datatypeCode === 4) var imgRaw = new Int16Array(img);
+    else if (hdr.datatypeCode === 16) var imgRaw = new Float32Array(img);
+    else if (hdr.datatypeCode === 512) var imgRaw = new Uint16Array(img);
+    mn = hdr.cal_min;
+    mx = hdr.cal_max;
+    var scale = 1;
+    if (mx > mn) scale = 255 / (mx - mn);
+    for (i = 0; i < vox - 1; i++) {
+        v = imgRaw[i];
+        v = v * hdr.scl_slope + hdr.scl_inter;
+        if (v < mn) img8[i] = 0;
+        else if (v > mx) img8[i] = 255;
+        else img8[i] = (v - mn) * scale;
     }
+
+    tex1 = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_3D, tex1);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texStorage3D(
+        gl.TEXTURE_3D,
+        1,
+        gl.R8,
+        hdr.dims[0],
+        hdr.dims[1],
+        hdr.dims[2]
+    );
+    gl.texSubImage3D(
+        gl.TEXTURE_3D,
+        0,
+        0,
+        0,
+        0,
+        hdr.dims[0],
+        hdr.dims[1],
+        hdr.dims[2],
+        gl.RED,
+        gl.UNSIGNED_BYTE,
+        img8
+    );
+
+    tex2 = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_3D, tex2);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texStorage3D(
+        gl.TEXTURE_3D,
+        1,
+        gl.R8,
+        epiVolume[0],
+        epiVolume[1],
+        epiVolume[2]
+    );
+    gl.texSubImage3D(
+        gl.TEXTURE_3D,
+        0,
+        0,
+        0,
+        0,
+        epiVolume[0],
+        epiVolume[1],
+        epiVolume[2],
+        gl.RED,
+        gl.UNSIGNED_BYTE,
+        electrodeData
+    );
 
 
     var longestAxis = Math.max(
-        dims[0],
-        Math.max(dims[1], dims[2])
+        hdr.dims[0],
+        Math.max(hdr.dims[1], hdr.dims[2])
     );
     // var volScale = [
-    //     dims[0] / longestAxis,
-    //     dims[2] / longestAxis,
-    //     dims[3] / longestAxis,
+    //     hdr.dims[0] / longestAxis,
+    //     hdr.dims[2] / longestAxis,
+    //     hdr.dims[3] / longestAxis,
     // ];
 
     // console.log(gl.getParameter(gl.CURRENT_PROGRAM))
-    shader.use();
-    var vdims = gl.getUniformLocation(shader.program, "volume_dims");
+
+
     var volDims = [
-        dims[0],
-        dims[1],
-        dims[2],
+        hdr.dims[0],
+        hdr.dims[1],
+        hdr.dims[2],
     ]
+
+    shaderV1.use();
+    var vdims = gl.getUniformLocation(shaderV1.program, "volume_dims");
     gl.uniform3iv(vdims, volDims);
 
     console.log(volDims, longestAxis)
-    gl.uniform3fv(shader.uniforms["volume_scale"], [1, 1, 1]);
+    gl.uniform3fv(shaderV1.uniforms["volume_scale"], [1, 1, 1]);
     newVolumeUpload = true;
+
+    shaderV2.use();
+    var vdims2 = gl.getUniformLocation(shaderV2.program, "volume_dims");
+    gl.uniform3iv(vdims2, volDims);
+
+    console.log(volDims, longestAxis)
+    gl.uniform3fv(shaderV2.uniforms["volume_scale"], [1, 1, 1]);
+
     //gradientGL();
-    if (!volumeTexture) {
-        volumeTexture = tex;
+    if (!volumeTexture || !electrodeTexture) {
+        volumeTexture = tex1;
+        electrodeTexture = tex2;
         if (isDrawOnDemand);
         else {
             //glDraw();
             setInterval(function () {
-                shader.use()
                 // Save them some battery if they're not viewing the tab
                 if (document.hidden) {
                     return;
@@ -407,9 +413,13 @@ function updateVolume(shader, type) {
                 if (newVolumeUpload) {
                     onWindowResize();
                     samplingRate = 1.0;
-                    gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
+                    shaderV1.use()
+                    gl.uniform1f(shaderV1.uniforms["dt_scale"], samplingRate);
+
+                    shaderV2.use()
+                    gl.uniform1f(shaderV2.uniforms["dt_scale"], samplingRate);
                 }
-                glDraw(shader);
+                glDraw();
                 var endTime = new Date();
                 var renderTime = endTime - startTime;
                 var targetSamplingRate = renderTime / targetFrameTime;
@@ -419,41 +429,28 @@ function updateVolume(shader, type) {
                 //         saveAs(b, "screen.png");
                 //     }, "image/png");
                 // }
-                // If we're dropping frames, decrease the sampling rate
-                if (!newVolumeUpload && targetSamplingRate > samplingRate) {
-                    samplingRate = 0.8 * samplingRate + 0.2 * targetSamplingRate;
-                    gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
-                }
+                // // If we're dropping frames, decrease the sampling rate
+                // if (!newVolumeUpload && targetSamplingRate > samplingRate) {
+                //     samplingRate = 0.8 * samplingRate + 0.2 * targetSamplingRate;
+                //     gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
+                // }
                 newVolumeUpload = false;
                 startTime = endTime;
             }, targetFrameTime);
         }
     } else {
         gl.deleteTexture(volumeTexture);
-        volumeTexture = tex;
-        if (isDrawOnDemand) glDraw(shader);
+        gl.deleteTexture(electrodeTexture);
+        volumeTexture = tex1;
+        electrodeTexture = tex2
+        if (isDrawOnDemand) glDraw();
     }
-    gradientGL(shader);
-    glDraw(shader);
+    gradientGL();
+    glDraw();
 } //updateVolume()
 
-var selectElectrodeVolume = function (url, shader) {
-    let vdata = []
-    d3.csv(url, data => {
-        vdata.push((parseFloat(data['value'])));
-    }).then(function () {
-        electrodeData = new Uint8Array(vdata)
-        updateVolume(shader, 'electrode')
-        console.log("selectElectrodeVolume done")
-    })
 
-
-    // d3.csv(url, function (data) {
-    //     console.log(data)
-    // })
-}
-
-var selectVolume = function (url, shader, isURL = true) {
+var selectVolume = function (url, isURL = true) {
     console.log('select volume')
     loadVolume(url, isURL, function (file, xhdr, ximg) {
         console.log('load volume')
@@ -514,7 +511,7 @@ var selectVolume = function (url, shader, isURL = true) {
             hdr.cal_max = mx;
         }
         // console.log(hdr)
-        updateVolume(shader, 'brain');
+        updateVolume();
     });
 }; // selectVolume()
 
@@ -601,7 +598,7 @@ var selectColormap = function (lutName, type) {
     }
     else if (type === 'electrode') {
         cm = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE0);
+        gl.activeTexture(gl.TEXTURE3);
         gl.bindTexture(gl.TEXTURE_2D, cm);
         gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 256, 1);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -661,77 +658,79 @@ window.onload = function () {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     //gl.clearColor(1, 0.5, 0.5, 3);
 
-    callBrainProgram();
-    // callElectrodeProgram();
-    // callBrainProgram();
+    let vdata = []
+    d3.csv("electrode_volume.csv", data => {
+        vdata.push((parseFloat(data['value'])));
+    }).then(function () {
+        electrodeData = new Uint8Array(vdata)
+        console.log('electrode data loaded');
+
+        console.log('electrode configuration')
+
+        vaoEpi = gl.createVertexArray();
+        gl.bindVertexArray(vaoEpi);
+        vboEpi = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vboEpi);
+        gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array(cubeStrip),
+            gl.STATIC_DRAW
+        );
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+        shaderV2 = setShader(1, shaderV2); //Lighting shader
+        // console.log(shaderV2)
+        selectColormap("Plasma", 'electrode');
+
+        shaderV2 = new Shader(vertShader, fragShaderLighting);
+        shaderV2.use();
+        console.log(shaderV2.uniforms)
+        gl.uniform1i(shaderV2.uniforms["volume"], 4);
+        gl.uniform1i(shaderV2.uniforms["colormap"], 3);
+        gl.uniform1i(shaderV2.uniforms["gradients"], 2);
+        gl.uniform1f(shaderV2.uniforms["dt_scale"], 1.0);
+
+        console.log("brain program")
+        sobelShader = new Shader(blurVertShader, sobelFragShader);
+        sobelShader.use();
+        blurShader = new Shader(blurVertShader, blurFragShader);
+        blurShader.use();
+
+        // Setup VAO and VBO to render the cube to run the raymarching shader
+        vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array(cubeStrip),
+            gl.STATIC_DRAW
+        );
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+
+
+        shaderV1 = new Shader(vertShader, fragShaderLighting);
+        shaderV1.use()
+        gl.uniform1i(shaderV1.uniforms["volume"], 0);
+        gl.uniform1i(shaderV1.uniforms["colormap"], 1);
+        gl.uniform1i(shaderV1.uniforms["gradients"], 2);
+        gl.uniform1f(shaderV1.uniforms["dt_scale"], 1.0); //Lighting shader
+
+
+        // Load the default colormap and upload it, after which we
+        // load the default volume.
+        selectColormap("Gray", 'brain');
+        // selectVolume("spmSmall.nii.gz");
+        selectVolume("primary.nii.gz");
+    })
+
+
 }; // window.onload()
 
-function callElectrodeProgram() {
-    console.log("electrode program")
-    // sobelShader = new Shader(blurVertShader, sobelFragShader);
-    // sobelShader.use();
-    // blurShader = new Shader(blurVertShader, blurFragShader);
-    // blurShader.use();
 
-    // Setup VAO and VBO to render the cube to run the raymarching shader
-    vaoEpi = gl.createVertexArray();
-    gl.bindVertexArray(vaoEpi);
-    vboEpi = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vboEpi);
-    gl.bufferData(
-        gl.ARRAY_BUFFER,
-        new Float32Array(cubeStrip),
-        gl.STATIC_DRAW
-    );
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-
-
-
-    shaderV2 = setShader(1, shaderV2); //Lighting shader
-    console.log(shaderV2)
-
-
-    // Load the default colormap and upload it, after which we
-    // load the default volume.
-    selectColormap("Plasma", 'electrode');
-    // selectVolume("spmSmall.nii.gz");
-    shaderV2 = selectElectrodeVolume("electrode_volume.csv", shaderV2);
-
-}
-
-function callBrainProgram() {
-    console.log("brain program")
-    sobelShader = new Shader(blurVertShader, sobelFragShader);
-    sobelShader.use();
-    blurShader = new Shader(blurVertShader, blurFragShader);
-    blurShader.use();
-
-    // Setup VAO and VBO to render the cube to run the raymarching shader
-    vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-    vbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(
-        gl.ARRAY_BUFFER,
-        new Float32Array(cubeStrip),
-        gl.STATIC_DRAW
-    );
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-
-
-
-    shaderV1 = setShader(1, shaderV1); //Lighting shader
-    console.log(shaderV1)
-
-
-    // Load the default colormap and upload it, after which we
-    // load the default volume.
-    selectColormap("Gray", 'brain');
-    // selectVolume("spmSmall.nii.gz");
-    shaderV1 = selectVolume("primary.nii.gz", shaderV1);
-}
 
 function setShader(shaderInt, shader) {
     console.log('set shader')
@@ -779,5 +778,5 @@ function onWindowResize(isInit = false) {
     //if (isInit) return;
     //samplingRate = 1.0;
     //gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
-    if (shaderV1 !== null && isDrawOnDemand) glDraw(shaderV1);
+    if (shaderV1 !== null && isDrawOnDemand && shaderV2 !== null) glDraw();
 } //onWindowResize()
