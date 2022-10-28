@@ -22,7 +22,7 @@ var sobelShader = null;
 var volumeTexture = null;
 var electrodeTexture = null;
 var gradientTexture = null;
-var colormap = [];
+var colormap = null;
 var proj = null;
 
 var vao = null;
@@ -162,7 +162,7 @@ function gradientGL() {
     tempTex3D = bindBlankGL();
     blurShader.use();
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_3D, tex1);
+    gl.bindTexture(gl.TEXTURE_3D, tex);
     gl.uniform1i(blurShader.uniforms["intensityVol"], 1);
     gl.uniform1f(blurShader.uniforms["dX"], 0.7 / hdr.dims[1]);
     gl.uniform1f(blurShader.uniforms["dY"], 0.7 / hdr.dims[2]);
@@ -235,7 +235,7 @@ function gradientGL() {
 function glDraw() {
     // console.log('brain gl draw')
     // console.log(shaderV1, shaderV2)
-
+    // shaderV1.use()
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     projView = mat4.mul(projView, proj, camera.camera);
@@ -299,9 +299,9 @@ function updateVolume() {
         else img8[i] = (v - mn) * scale;
     }
 
-    tex1 = gl.createTexture();
+    tex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_3D, tex1);
+    gl.bindTexture(gl.TEXTURE_3D, tex);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
@@ -399,7 +399,7 @@ function updateVolume() {
     //gradientGL();
 
     if (!volumeTexture) {
-        volumeTexture = tex1;
+        volumeTexture = tex;
         // electrodeTexture = tex2;
         if (isDrawOnDemand);
         else {
@@ -444,7 +444,7 @@ function updateVolume() {
     } else {
         gl.deleteTexture(volumeTexture);
         // gl.deleteTexture(electrodeTexture);
-        volumeTexture = tex1;
+        volumeTexture = tex;
         // electrodeTexture = tex2
         if (isDrawOnDemand) glDraw();
     }
@@ -545,7 +545,7 @@ function makeLut(Rs, Gs, Bs, As, Is) {
     return lut;
 } // makeLut()
 
-var selectColormap = function (lutName, type) {
+var selectColormap = function (lutName) {
     console.log('colormap')
     var lut = makeLut([0, 255], [0, 255], [0, 255], [0, 128], [0, 255]); //gray
     if (lutName === "Plasma")
@@ -573,54 +573,55 @@ var selectColormap = function (lutName, type) {
             [0, 64, 192, 255]
         ); //inferno
     colorName = lutName;
-    if (colormap !== null && colormap.length == 2) {
-        gl.deleteTexture(colormap[0]);
-        gl.deleteTexture(colormap[1]);
-    }  //release colormap');
-    if (type === 'brain') {
-        cm = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, cm);
-        gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 256, 1);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texSubImage2D(
-            gl.TEXTURE_2D,
-            0,
-            0,
-            0,
-            256,
-            1,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            lut
-        );
+    // if (colormap !== null && colormap.length == 2) {
+    //     gl.deleteTexture(colormap[0]);
+    //     gl.deleteTexture(colormap[1]);
+    // }  //release colormap');
+    if (colormap !== null) gl.deleteTexture(colormap)
+    // if (type === 'brain') {
+    colormap = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, colormap);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 256, 1);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        256,
+        1,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        lut
+    );
 
-        colormap.push(cm)
-    }
-    else if (type === 'electrode') {
-        cm = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE3);
-        gl.bindTexture(gl.TEXTURE_2D, cm);
-        gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 256, 1);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texSubImage2D(
-            gl.TEXTURE_2D,
-            0,
-            0,
-            0,
-            256,
-            1,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            lut
-        );
+    // colormap.push(cm)
+    // }
+    // else if (type === 'electrode') {
+    //     cm = gl.createTexture();
+    //     gl.activeTexture(gl.TEXTURE3);
+    //     gl.bindTexture(gl.TEXTURE_2D, cm);
+    //     gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 256, 1);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    //     gl.texSubImage2D(
+    //         gl.TEXTURE_2D,
+    //         0,
+    //         0,
+    //         0,
+    //         256,
+    //         1,
+    //         gl.RGBA,
+    //         gl.UNSIGNED_BYTE,
+    //         lut
+    //     );
 
-        colormap.push(cm)
-    }
+    //     colormap.push(cm)
+    // }
 
 }; // selectColormap()
 
@@ -725,7 +726,7 @@ window.onload = function () {
 
         // Load the default colormap and upload it, after which we
         // load the default volume.
-        selectColormap("Gray", 'brain');
+        selectColormap("Gray");
         // selectVolume("spmSmall.nii.gz");
         selectVolume("primary.nii.gz");
     })
